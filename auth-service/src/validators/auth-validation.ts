@@ -14,7 +14,7 @@ export const registerSchema = Joi.object({
     "string.min": "Şifre en az 6 karakter olmalıdır",
     "any.required": "Şifre alanı zorunludur",
   }),
-  full_name: Joi.string().required().messages({
+  fullname: Joi.string().required().messages({
     "string.empty": "Ad Soyad boş olamaz",
     "any.required": "Ad Soyad zorunludur",
   }),

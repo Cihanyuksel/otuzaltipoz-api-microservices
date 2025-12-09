@@ -2,10 +2,17 @@ import jwt from "jsonwebtoken";
 import { Response } from "express";
 import { Types } from "mongoose";
 
-export const generateTokens = (userId: Types.ObjectId | string) => {
-  const accessToken = jwt.sign({ userId }, process.env.JWT_SECRET as string, {
-    expiresIn: "15m",
-  });
+export const generateTokens = (
+  userId: Types.ObjectId | string,
+  role: "user" | "admin" | "moderator"
+) => {
+  const accessToken = jwt.sign(
+    { userId, role },
+    process.env.JWT_SECRET as string,
+    {
+      expiresIn: "15m",
+    }
+  );
 
   const refreshToken = jwt.sign(
     { userId },

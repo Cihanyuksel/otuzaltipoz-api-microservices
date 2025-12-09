@@ -6,6 +6,7 @@ import RefreshToken from "../models/RefreshToken";
 import { randomBytes } from "crypto";
 import { generateTokens, setTokenCookies } from "../utils/jwt";
 import { AuthRequest } from "../middleware/auth-middleware";
+import jwt from "jsonwebtoken";
 
 const register = async (
   req: Request,
@@ -91,7 +92,7 @@ const login = async (
       return next(new AppError("Hatalı email veya şifre.", 401));
     }
 
-    const { accessToken, refreshToken } = generateTokens(user._id);
+    const { accessToken, refreshToken } = generateTokens(user._id, user.role);
 
     await RefreshToken.create({
       userId: user._id,
@@ -142,4 +143,87 @@ const me = async (
   }
 };
 
-export { register, login, me };
+const logout = async (
+  req: Request,
+  res: Response,
+  next: NextFunction
+): Promise<void> => {
+  try {
+    const { refreshToken } = req.cookies;
+
+    if (refreshToken) {
+      await RefreshToken.deleteOne({ token: refreshToken });
+    }
+
+    const cookieOptions = {
+      httpOnly: true,
+      secure: process.env.NODE_ENV !== "development",
+      sameSite: "strict" as const,
+    };
+
+    res.clearCookie("accessToken", cookieOptions);
+    res.clearCookie("refreshToken", cookieOptions);
+
+    res.status(200).json({
+      success: true,
+      message: "Başarıyla çıkış yapıldı.",
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+const refreshToken = async (
+  req: Request,
+  res: Response,
+  next: NextFunction
+): Promise<void> => {
+  try {
+    const incomingRefreshToken = req.cookies.refreshToken;
+
+    if (!incomingRefreshToken) {
+      return next(
+        new AppError("Oturum süreniz dolmuş (Token bulunamadı).", 401)
+      );
+    }
+    const decoded = jwt.verify(
+      incomingRefreshToken,
+      process.env.JWT_REFRESH_SECRET as string
+    ) as { userId: string };
+
+    const tokenDoc = await RefreshToken.findOne({
+      token: incomingRefreshToken,
+      userId: decoded.userId,
+    });
+
+    if (!tokenDoc) {
+      return next(new AppError("Geçersiz veya süresi dolmuş oturum.", 401));
+    }
+
+    const user = await User.findById(decoded.userId);
+
+    if (!user) {
+      return next(new AppError("Kullanıcı bulunamadı.", 404));
+    }
+
+    const { accessToken } = generateTokens(user._id, user.role);
+
+    res.cookie("accessToken", accessToken, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV !== "development",
+      sameSite: "strict",
+      maxAge: 15 * 60 * 1000,
+    });
+
+    res.status(200).json({
+      success: true,
+      message: "Access Token yenilendi.",
+    });
+  } catch (error) {
+    return next(
+      new AppError("Oturum geçersiz, lütfen tekrar giriş yapın.", 401)
+    );
+  }
+};
+
+export { register, login, me, logout, refreshToken };

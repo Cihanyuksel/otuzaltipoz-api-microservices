@@ -5,6 +5,8 @@ import helmet from "helmet";
 import connectDB from "./config/db";
 import errorHandler from "./middleware/errorHandler";
 import authRouter from "./routes/auth-routes";
+import cookieParser from "cookie-parser"; 
+
 dotenv.config();
 
 const app = express();
@@ -15,6 +17,7 @@ connectDB();
 app.use(helmet());
 app.use(cors());
 app.use(express.json());
+app.use(cookieParser());
 
 app.use("/", authRouter);
 
